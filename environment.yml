@@ -1,0 +1,16 @@
+name: vizdoom
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python
+  - notebook
+  - numpy
+  - pandas
+  - matplotlib
+  - scikit-learn
+  - scikit-image
+  - tensorflow
+  - gym
+  - vizdoom
+  - opencv
