@@ -20,10 +20,11 @@ import time
 
 # def custom_loss_function(y_true, y_pred):
 def custom_loss_function(reward, action_prob):
-    loss = - K.log(action_prob) * reward
+    loss = K.log(action_prob) * reward
     # loss = action_prob * reward
-    loss = K.mean(loss)
-    return loss
+    loss = K.sum(loss)
+    # negate to turn the maximization into a minimization
+    return -loss
 
 
 def create_model():
@@ -155,7 +156,7 @@ def weasel_histories(model, histories):
 if __name__ == '__main__':
     # model = keras.models.load_model('model')
     model = create_model()
-    THREADS = 5
+    THREADS = 4
     total_reward_history = []
 
     results = create_multibatch(model, THREADS)
@@ -172,8 +173,11 @@ if __name__ == '__main__':
             print("Elapsed time:", time.time() - start_time)
 
     print("Total training time: ", time.time() - start_time)
-    plt.plot(total_reward_history)
-    plt.plot(pd.DataFrame(total_reward_history).rolling(window=10).mean())
+    plt.plot(total_reward_history, color="blue", label="Total")
+    plt.plot(pd.DataFrame(total_reward_history).rolling(window=10).mean(), color="red", label="Moving average")
+    plt.set_xlabel("Simulations")
+    plt.set_ylabel("Reward")
+    plt.legend()
     plt.show()
 
     model.save('model')
