@@ -10,7 +10,7 @@ dependencies:
   - matplotlib
   - scikit-learn
   - scikit-image
-  - tensorflow
+  - tensorflow==2.3.0
   - gym
   - vizdoom
   - opencv

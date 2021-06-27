@@ -112,7 +112,6 @@ class History:
 
 
 def create_batch(model_weights):
-    # def create_batch(model_weights, history_ref=[{}], i=0):
     gym_env = gym.make('CartPole-v0')
     model = create_model()
     model.set_weights(model_weights)
@@ -133,11 +132,10 @@ def create_batch(model_weights):
 def create_multibatch(model, n):
     with Pool(n) as p:
         results = p.map(create_batch, [model.get_weights() for i in range(n)])
-
     return results
 
 
-def weasel_histories(model, histories):
+def update_weights(model, histories):
     # states
     x = np.vstack(
         [histories[i].state for i in range(len(histories))]
@@ -153,31 +151,32 @@ def weasel_histories(model, histories):
     return loss, average_reward
 
 
+def plot_training(reward_history):
+    plt.plot(reward_history, color="blue", label="Total")
+    plt.plot(pd.DataFrame(reward_history).rolling(window=10).mean(), color="red", label="Moving average")
+    plt.xlabel("Simulations")
+    plt.ylabel("Reward")
+    plt.legend()
+    plt.show()
+
+
 if __name__ == '__main__':
     # model = keras.models.load_model('model')
     model = create_model()
     THREADS = 4
     total_reward_history = []
 
-    results = create_multibatch(model, THREADS)
-    weasel_histories(model, results)
-
     start_time = time.time()
 
-    for i in range(500):
+    for i in range(50):
         batch = create_multibatch(model, THREADS)
-        loss, total_reward = weasel_histories(model, batch)
+        loss, total_reward = update_weights(model, batch)
         total_reward_history.append(total_reward)
         print("Iteration: ", i, " --- Loss: ", loss, "Reward: ", total_reward)
         if i%10 == 0:
             print("Elapsed time:", time.time() - start_time)
+            plot_training(total_reward_history)
 
     print("Total training time: ", time.time() - start_time)
-    plt.plot(total_reward_history, color="blue", label="Total")
-    plt.plot(pd.DataFrame(total_reward_history).rolling(window=10).mean(), color="red", label="Moving average")
-    plt.set_xlabel("Simulations")
-    plt.set_ylabel("Reward")
-    plt.legend()
-    plt.show()
-
     model.save('model')
+    pd.DataFrame(total_reward_history).to_csv("reward_history.csv", index=False)
