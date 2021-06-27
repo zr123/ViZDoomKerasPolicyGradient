@@ -204,7 +204,7 @@ def create_batch(model_weights):
 def create_multibatch(model, pool_size=THREAD_COUNT, batch_size=BATCH_SIZE):
     args = [model.get_weights() for i in range(batch_size)]
     with concurrent.futures.ProcessPoolExecutor(max_workers=THREAD_COUNT) as executor:
-        results = executor.map(create_batch, args, timeout=60)
+        results = executor.map(create_batch, args, timeout=120)
     return results
 
 
