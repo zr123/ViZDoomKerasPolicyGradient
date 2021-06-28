@@ -15,6 +15,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import concurrent.futures
 import time
+import os.path
 
 
 SCREEN_BUFFER_SHAPE = (3, 240, 320)
@@ -23,9 +24,9 @@ PROCESSED_SCREEN_HEIGHT, PROCESSED_SCREEN_WIDTH = (120, 160)
 FRAMES_PER_ACTION = 6
 ACTIONS = [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
 # Number of parallel executors (actually fully separate processed, not threads)
-THREAD_COUNT = 8
+THREAD_COUNT = 6
 # number of training-simulations per epoch
-BATCH_SIZE = 8
+BATCH_SIZE = 6
 
 
 def create_game(display=False):
@@ -33,8 +34,8 @@ def create_game(display=False):
     game.load_config("../scenarios/health_gathering.cfg")
     game.set_doom_scenario_path("../scenarios/health_gathering.wad")
     # default rewards are way too high
-    game.set_living_reward(0.1)
-    game.set_death_penalty(10.0)
+    game.set_living_reward(0.01)
+    game.set_death_penalty(4.0)
     # game.set_render_hud(True)
     game.set_window_visible(display)
     game.init()
@@ -183,10 +184,11 @@ class History:
         self.reward.append(reward)
 
 
-def create_batch(model_weights):
+#def create_batch(model_weights):
+def create_batch(model):
     game = create_game()
-    model = create_model()
-    model.set_weights(model_weights)
+    #model = create_model()
+    #model.set_weights(model_weights)
     history = History()
 
     while not game.is_episode_finished():
@@ -202,8 +204,9 @@ def create_batch(model_weights):
 
 
 def create_multibatch(model, pool_size=THREAD_COUNT, batch_size=BATCH_SIZE):
-    args = [model.get_weights() for i in range(batch_size)]
-    with concurrent.futures.ProcessPoolExecutor(max_workers=THREAD_COUNT) as executor:
+    #args = [model.get_weights() for i in range(batch_size)]
+    args = [model for i in range(batch_size)]
+    with concurrent.futures.ThreadPoolExecutor(max_workers=THREAD_COUNT) as executor:
         results = executor.map(create_batch, args, timeout=120)
     return results
 
@@ -236,24 +239,33 @@ def plot_training(reward_history):
     plt.show()
 
 
+def load_model_from_history(iteration=-1):
+    # load latest model by default
+    if iteration == -1:
+        iteration = max([int(d) for d in next(os.walk("model_history"))[1]])
+    model = keras.models.load_model('model_history/' + str(iteration), compile=False)
+    model.compile(optimizer='adam', loss=custom_loss_function)
+    total_reward_history = pd.read_csv("model_history/reward_history.csv").values[:, 0].tolist()
+    return model, total_reward_history, iteration
+
+
 if __name__ == '__main__':
     #model = create_model()
     #total_reward_history = []
-    model = keras.models.load_model('model', compile=False)
-    model.compile(optimizer='adam', loss=custom_loss_function)
-    total_reward_history = pd.read_csv("reward_history.csv").values[:, 0].tolist()
+
+    model, total_reward_history, iteration = load_model_from_history()
 
     start_time = time.time()
 
-    for i in range(820):
+    for i in range(iteration, 500):
         batch = create_multibatch(model)
         loss, total_reward = update_weights(model, batch)
         total_reward_history.append(total_reward)
         print("Iteration: ", i, " --- Loss: ", loss, "Reward: ", total_reward)
-        if i%20 == 0:
+        if (i+1)%20 == 0:
             print("Elapsed time:", time.time() - start_time)
             plot_training(total_reward_history)
-            model.save('model')
-            pd.DataFrame(total_reward_history).to_csv("reward_history.csv", index=False)
+            model.save("model_history/" + str(i+1))
+            pd.DataFrame(total_reward_history).to_csv("model_history/reward_history.csv", index=False)
 
     print("Total training time: ", time.time() - start_time)

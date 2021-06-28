@@ -133,3 +133,6 @@ dmypy.json
 
 # VizDoom
 _vizdoom.ini
+
+# Custom model history files
+*/model_history/
