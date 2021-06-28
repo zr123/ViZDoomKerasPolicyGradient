@@ -35,7 +35,7 @@ def create_game(display=False):
     game.set_doom_scenario_path("../scenarios/health_gathering.wad")
     # default rewards are way too high
     game.set_living_reward(0.01)
-    game.set_death_penalty(4.0)
+    game.set_death_penalty(3.84)
     # game.set_render_hud(True)
     game.set_window_visible(display)
     game.init()
@@ -51,15 +51,18 @@ def custom_loss_function(reward, action_prob):
     return - loss
 
 
-def play_randomly(game, actions):
+def play_randomly():
+    game = create_game(display=True)
     game.set_render_hud(True)
     game.new_episode()
     while not game.is_episode_finished():
         state = game.get_state()
         img = state.screen_buffer
         misc = state.game_variables
-        reward = game.make_action(random.choice(actions), FRAMES_PER_ACTION)
-    game.get_total_reward()
+        reward = game.make_action(random.choice(ACTIONS), FRAMES_PER_ACTION)
+    reward = game.get_total_reward()
+    game.close()
+    return reward
 
 
 def preprocess_screen(screen, width=PROCESSED_SCREEN_WIDTH, height=PROCESSED_SCREEN_HEIGHT):
@@ -110,15 +113,17 @@ def take_probabilistic_action(model, formatted_state):
     return action
 
 
-def play_and_display(game, model):
+def play_and_display(model):
+    game = create_game(display=True)
     game.new_episode()
     while not game.is_episode_finished():
-        state = game.get_state()
         screen = preprocess_screen(game.get_state().screen_buffer)
         health = game.get_state().game_variables
         action = take_probabilistic_action(model, [np.array([screen]), np.array([health])])
-        reward = game.make_action(ACTIONS[action], FRAMES_PER_ACTION)
-    return game.get_total_reward()
+        game.make_action(ACTIONS[action], FRAMES_PER_ACTION)
+    reward = game.get_total_reward()
+    game.close()
+    return reward
 
 
 def compute_discounted_reward(reward_history, discount_rate=0.99):
@@ -239,12 +244,19 @@ def plot_training(reward_history):
     plt.show()
 
 
+def load_model(path):
+    model = keras.models.load_model(path, compile=False)
+    model.compile(optimizer='adam', loss=custom_loss_function)
+    return model
+
+
 def load_model_from_history(iteration=-1):
     # load latest model by default
     if iteration == -1:
         iteration = max([int(d) for d in next(os.walk("model_history"))[1]])
-    model = keras.models.load_model('model_history/' + str(iteration), compile=False)
-    model.compile(optimizer='adam', loss=custom_loss_function)
+    model = load_model('model_history/' + str(iteration))
+    # model = keras.models.load_model('model_history/' + str(iteration), compile=False)
+    # model.compile(optimizer='adam', loss=custom_loss_function)
     total_reward_history = pd.read_csv("model_history/reward_history.csv").values[:, 0].tolist()
     return model, total_reward_history, iteration
 
