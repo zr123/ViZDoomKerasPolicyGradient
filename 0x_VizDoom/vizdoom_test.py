@@ -45,7 +45,8 @@ def create_game(display=False):
 
 # def custom_loss_function(y_true, y_pred):
 def custom_loss_function(reward, action_prob):
-    loss = K.log(action_prob) * reward
+    # add a very small number to action prob, to make sure we don't do the log of zero
+    loss = K.log(action_prob + 1e-7) * reward
     loss = K.sum(loss)
     loss = loss / BATCH_SIZE
     return - loss
@@ -66,7 +67,7 @@ def play_randomly():
 
 
 def preprocess_screen(screen, width=PROCESSED_SCREEN_WIDTH, height=PROCESSED_SCREEN_HEIGHT):
-    # vizdoom used channel-first, cv2 uses channel-last
+    # vizdoom used channel-first, cv2 & keras use channel-last
     screen = screen.transpose((1, 2, 0))
     # grayscale
     screen = cv2.cvtColor(screen, cv2.COLOR_BGR2GRAY)
@@ -269,7 +270,7 @@ if __name__ == '__main__':
 
     start_time = time.time()
 
-    for i in range(iteration, 500):
+    for i in range(iteration, 1000):
         batch = create_multibatch(model)
         loss, total_reward = update_weights(model, batch)
         total_reward_history.append(total_reward)
