@@ -17,7 +17,7 @@ class VizdoomWrapper:
         # default rewards are way too high
         self.game.set_living_reward(0.01)
         self.game.set_death_penalty(3.84)
-        # game.set_render_hud(True)
+        #self.game.set_render_hud(True)
         self.game.set_window_visible(render)
         self.game.init()
 
@@ -32,7 +32,7 @@ class VizdoomWrapper:
             self.convert_state(self.game.get_state()),
             reward,
             self.game.is_episode_finished(),
-            "noinfo"
+            {}
         )
 
     def render(self):
@@ -44,10 +44,7 @@ class VizdoomWrapper:
     def convert_state(self, state):
         if state is None:
             return None
-        return (
-            np.array([self.preprocess_screen(state.screen_buffer)]),
-            np.array([state.game_variables])
-        )
+        return self.preprocess_screen(state.screen_buffer)
 
     def preprocess_screen(self, screen):
         # vizdoom used channel-first, cv2 uses channel-last

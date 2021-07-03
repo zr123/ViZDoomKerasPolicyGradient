@@ -1,25 +1,20 @@
 import gym
 import tensorflow as tf
-from tensorflow.keras import Sequential
-from tensorflow.keras.layers import Input, Dense, Conv2D, Flatten, MaxPooling2D
-from tensorflow.keras import layers
-from tensorflow.keras import backend as K
-from tensorflow import keras
 import numpy as np
 import VizdoomWrapper
 import tensorflow.keras.utils as utils
+import Models
 
 
 class ReinforceAgent:
     def __init__(self, game='CartPole-v0'):
-        if game == "VizDoom":
-            self.model = ReinforceAgent.create_vizdoom_model()
-            game_env = VizdoomWrapper.VizdoomWrapper()
-        else:
-            self.model = ReinforceAgent.create_cartpole_model()
-            game_env = gym.make(game)
+        self.model = Models.create_model(game)
         self.game = game
+        self.training_reward_history = []
+        # get actions space
+        game_env = self.create_game_env()
         self.action_space = game_env.action_space.n
+        game_env.close()
 
     class History:
         def __init__(self):
@@ -32,69 +27,27 @@ class ReinforceAgent:
             self.actions.append(action)
             self.rewards.append(reward)
 
-    @staticmethod
-    def policy_gradient_loss(reward, action_prob):
-        loss = K.log(action_prob) * reward
-        loss = K.sum(loss)
-        return - loss
-
-    @staticmethod
-    def create_cartpole_model():
-        model = Sequential()
-        model.add(Input(shape=(4,)))
-        model.add(Dense(32, activation='relu'))
-        model.add(Dense(32, activation='relu'))
-        model.add(Dense(2, activation='softmax'))
-        model.compile(optimizer='adam', loss=ReinforceAgent.policy_gradient_loss)
-        return model
-
-    def create_vizdoom_model(input_width=160, input_height=120, action_space=3):
-        # screen-input and conv_layers
-        screen_input = Input((input_height, input_width, 1))
-        conv_layers = Conv2D(32, kernel_size=(3, 3), activation="relu")(screen_input)
-        conv_layers = MaxPooling2D(pool_size=(2, 2))(conv_layers)
-        conv_layers = Conv2D(32, kernel_size=(3, 3), activation="relu")(conv_layers)
-        conv_layers = MaxPooling2D(pool_size=(2, 2))(conv_layers)
-        conv_layers = Conv2D(32, kernel_size=(3, 3), activation="relu")(conv_layers)
-        conv_layers = MaxPooling2D(pool_size=(2, 2))(conv_layers)
-        conv_layers = Conv2D(32, kernel_size=(3, 3), activation="relu")(conv_layers)
-        conv_layers = MaxPooling2D(pool_size=(2, 2))(conv_layers)
-        conv_layers = Flatten()(conv_layers)
-
-        # health input
-        health_input = Input((1,))
-
-        # concat and add some dense layers for good measure
-        dense_layers = layers.concatenate([conv_layers, health_input])
-        dense_layers = Dense(16, activation='relu')(dense_layers)
-        dense_layers = Dense(16, activation='relu')(dense_layers)
-        dense_layers = Dense(16, activation='relu')(dense_layers)
-
-        # finalize
-        output = Dense(action_space, activation='softmax')(dense_layers)
-        model = keras.Model(inputs=[screen_input, health_input], outputs=output)
-        model.compile(optimizer='adam', loss=ReinforceAgent.policy_gradient_loss)
-        return model
-
     def take_action(self, state):
-        if self.game != "VizDoom":
-            state = np.array([state])
-        probabilities = self.model.predict(state)
+        probabilities = self.model.predict(np.array([state]))
         action = np.random.choice(self.action_space, p=probabilities[0])
         return action
 
-    def run_simulation(self, render=False):
+    def create_game_env(self, render=False):
         if self.game == "VizDoom":
             game_env = VizdoomWrapper.VizdoomWrapper(render=render)
         else:
             game_env = gym.make(self.game)
+        return game_env
+
+    def run_simulation(self, render=False):
+        game_env = self.create_game_env(render)
         state = game_env.reset()
         history = self.History()
         done = False
         while not done:
             if render:
                 game_env.render()
-            action = self.take_action(state)  # , _ = take_probabilistic_action(actor, state)
+            action = self.take_action(state)
             new_state, reward, done, _ = game_env.step(action)
             history.append(state, action, reward)
             state = new_state
@@ -116,15 +69,23 @@ class ReinforceAgent:
         formatted_rw = np.full((self.action_space, reward_history.shape[0]), reward_history).T
         return formatted_ah * formatted_rw
 
-    def train(self):
-        history = self.run_simulation()
+    def get_batch(self):
+        while True:
+            history = self.run_simulation()
+            #if self.game != "VizDoom":
+            #    history.states = np.array(history.states)
+            self.training_reward_history.append(np.sum(history.rewards))
+            x = np.array(history.states)
+            y = self.format_rewards(history.actions, self.compute_discounted_reward(np.array(history.rewards)))
+            yield x, y
 
-        if self.game != "VizDoom":
-            history.states = np.array(history.states)
-
-        loss = self.model.train_on_batch(
-            history.states,
-            self.format_rewards(history.actions, self.compute_discounted_reward(np.array(history.rewards)))
+    def train(self, epochs=1, batch_size=1, verbose=1, callbacks=None):
+        training_history = self.model.fit(
+            self.get_batch(),
+            epochs=epochs,
+            verbose=verbose,
+            steps_per_epoch=1,
+            callbacks=callbacks
         )
 
-        return loss
+        return training_history, self.training_reward_history
