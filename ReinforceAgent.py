@@ -1,3 +1,5 @@
+import concurrent
+
 import gym
 import tensorflow as tf
 import numpy as np
@@ -7,7 +9,7 @@ import Models
 
 
 class ReinforceAgent:
-    def __init__(self, game='CartPole-v0'):
+    def __init__(self, game='CartPole-v0', load_model_path=None):
         self.model = Models.create_model(game)
         self.game = game
         self.training_reward_history = []
@@ -69,19 +71,30 @@ class ReinforceAgent:
         formatted_rw = np.full((self.action_space, reward_history.shape[0]), reward_history).T
         return formatted_ah * formatted_rw
 
-    def get_batch(self):
+    def get_batch(self, batch_size=1):
         while True:
-            history = self.run_simulation()
-            #if self.game != "VizDoom":
-            #    history.states = np.array(history.states)
-            self.training_reward_history.append(np.sum(history.rewards))
-            x = np.array(history.states)
-            y = self.format_rewards(history.actions, self.compute_discounted_reward(np.array(history.rewards)))
+            results = self.get_multibatch(batch_size)
+            histories = [h for h in results]
+            x = np.vstack([h.states for h in histories])
+            y = np.vstack([
+                self.format_rewards(h.actions, self.compute_discounted_reward(np.array(h.rewards)))
+                for h in histories
+            ])
+            #history = self.run_simulation()
+            #self.training_reward_history.append(np.sum(history.rewards))
+            #x = np.array(history.states)
+            #y = self.format_rewards(history.actions, self.compute_discounted_reward(np.array(history.rewards)))
             yield x, y
+
+    def get_multibatch(self, batch_size):
+        args = [False for i in range(batch_size)]
+        with concurrent.futures.ThreadPoolExecutor(max_workers=batch_size) as executor:
+            results = executor.map(self.run_simulation, args, timeout=120)
+        return results
 
     def train(self, epochs=1, batch_size=1, verbose=1, callbacks=None):
         training_history = self.model.fit(
-            self.get_batch(),
+            self.get_batch(batch_size),
             epochs=epochs,
             verbose=verbose,
             steps_per_epoch=1,
