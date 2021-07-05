@@ -6,6 +6,8 @@ import numpy as np
 import VizdoomWrapper
 import tensorflow.keras.utils as utils
 import Models
+import matplotlib.pyplot as plt
+import pandas as pd
 
 
 class ReinforceAgent:
@@ -80,6 +82,8 @@ class ReinforceAgent:
                 self.format_rewards(h.actions, self.compute_discounted_reward(np.array(h.rewards)))
                 for h in histories
             ])
+            self.training_reward_history.append(np.mean([np.sum(h.rewards) for h in histories]))
+
             #history = self.run_simulation()
             #self.training_reward_history.append(np.sum(history.rewards))
             #x = np.array(history.states)
@@ -102,3 +106,27 @@ class ReinforceAgent:
         )
 
         return training_history, self.training_reward_history
+
+    def plot_training(self):
+        plt.plot(self.training_reward_history, color="blue", label="Batch")
+        plt.plot(
+            pd.DataFrame(self.training_reward_history).rolling(window=10).mean(),
+            color="red",
+            label="Moving average (10 batches)")
+        plt.xlabel("Epochs")
+        plt.ylabel("Reward")
+        plt.legend()
+        plt.show()
+
+    def save_model(self, path="models/VizdoomReinforceMultibatch", i=""):
+        self.model.save(path + "/" + str(i))
+        pd.DataFrame(self.training_reward_history).to_csv(path + "/VizdoomReinforceMultibatchRewards.csv", index=False)
+
+
+if __name__ == '__main__':
+    agent = ReinforceAgent("VizDoom")
+
+    for i in range(25):
+        history, reward_history = agent.train(epochs=20, batch_size=6)
+        agent.plot_training()
+        agent.save_model(i=i)
