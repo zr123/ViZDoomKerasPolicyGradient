@@ -36,15 +36,15 @@ class ReinforceAgent:
         action = np.random.choice(self.action_space, p=probabilities[0])
         return action
 
-    def create_game_env(self, render=False):
+    def create_game_env(self, render=False, frames_per_action=6):
         if self.game == "VizDoom":
-            game_env = VizdoomWrapper.VizdoomWrapper(render=render)
+            game_env = VizdoomWrapper.VizdoomWrapper(render=render, frames_per_action=frames_per_action)
         else:
             game_env = gym.make(self.game)
         return game_env
 
-    def run_simulation(self, render=False):
-        game_env = self.create_game_env(render)
+    def run_simulation(self, render=False, frames_per_action=6):
+        game_env = self.create_game_env(render, frames_per_action=frames_per_action)
         state = game_env.reset()
         history = self.History()
         done = False
@@ -58,8 +58,8 @@ class ReinforceAgent:
         game_env.close()
         return history
 
-    def play_and_display(self):
-        history = self.run_simulation(render=True)
+    def play_and_display(self, frames_per_action=6):
+        history = self.run_simulation(render=True, frames_per_action=frames_per_action)
         return np.sum(history.rewards)
 
     @staticmethod
