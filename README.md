@@ -25,6 +25,7 @@ A production-ready or efficient implementation. There is lots of room for optimi
 * Refactoring the unreadable History-object preparations to be more readable.
 * Writing tests and bughunting.
 * Investigate if the code can be rewritten to not perform the forward-propagation twice.
+* Implementing and testing other ViZDoom scenarios.
 
 # Further Reading
 
