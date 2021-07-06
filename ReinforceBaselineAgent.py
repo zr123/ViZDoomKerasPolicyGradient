@@ -10,9 +10,10 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 
-class ReinforceAgent:
+class ReinforceBaselineAgent:
     def __init__(self, game='CartPole-v0', load_model_path=None):
         self.model = Models.create_model(game)
+        self.baseline = Models.create_baseline_model(game)
         self.game = game
         self.training_reward_history = []
         # get actions space
@@ -76,16 +77,23 @@ class ReinforceAgent:
     def get_batch(self, batch_size=1):
         while True:
             results = self.get_multibatch(batch_size)
+            # process histories
             histories = [h for h in results]
             x = np.vstack([h.states for h in histories])
-            y = np.vstack([
-                self.format_rewards(h.actions, self.compute_discounted_reward(np.array(h.rewards)))
+            actions = np.hstack([h.actions for h in histories])
+            #y = np.hstack([
+            discounted_rewards = np.hstack([
+                self.compute_discounted_reward(np.array(h.rewards))
                 for h in histories
             ])
-            # devide by the batch_size to get the mean of the batch
-            y = y / batch_size
             self.training_reward_history.append(np.mean([np.sum(h.rewards) for h in histories]))
-            yield x, y
+            # calculate advantage and update baseline
+            advantage = discounted_rewards - self.baseline.predict(x).flatten()
+            self.baseline.train_on_batch(x, discounted_rewards)
+            # devide by the batch_size to get the mean of the batch
+            advantage = self.format_rewards(actions, advantage)
+            advantage = advantage / batch_size
+            yield x, advantage
 
     def get_multibatch(self, batch_size):
         args = [False for i in range(batch_size)]
@@ -115,22 +123,24 @@ class ReinforceAgent:
         plt.legend()
         plt.show()
 
-    def save_model(self, path="models/VizdoomReinforceMultibatch"):
-        self.model.save(path + "/" + str(len(self.training_reward_history)))
+    def save_model(self, path="models/VizdoomReinforceBaseline"):
+        self.model.save(path + "/m_" + str(len(self.training_reward_history)))
+        self.baseline.save(path + "/b_" + str(len(self.training_reward_history)))
         pd.DataFrame(self.training_reward_history).to_csv(path + "/rewards.csv", index=False)
 
     @staticmethod
     def load_model(path, game):
-        agent = ReinforceAgent(game)
+        agent = ReinforceBaselineAgent(game)
         agent.training_reward_history = pd.read_csv(path + "/rewards.csv").iloc[:, 0].tolist()
-        agent.model = tf.keras.models.load_model(path + "/" + str(len(agent.training_reward_history)), compile=False)
+        agent.model = tf.keras.models.load_model(path + "/m_" + str(len(agent.training_reward_history)), compile=False)
         agent.model.compile(optimizer='adam', loss=Models.policy_gradient_loss)
+        agent.baseline = tf.keras.models.load_model(path + "/b_" + str(len(agent.training_reward_history)))
         return agent
 
 
 if __name__ == '__main__':
-    # agent = ReinforceAgent("VizDoom")
-    agent = ReinforceAgent.load_model("models/VizdoomReinforceMultibatch", "VizDoom")
+    agent = ReinforceBaselineAgent("VizDoom")
+    #agent = ReinforceBaselineAgent.load_model("models/VizdoomReinforceBaseline", "VizDoom")
 
     for i in range(25):
         history, reward_history = agent.train(epochs=20, batch_size=6)
