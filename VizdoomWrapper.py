@@ -47,7 +47,7 @@ class VizdoomWrapper:
         return self.preprocess_screen(state.screen_buffer)
 
     def preprocess_screen(self, screen):
-        # vizdoom used channel-first, cv2 uses channel-last
+        # vizdoom used channel-first, cv2 and keras use channel-last
         screen = screen.transpose((1, 2, 0))
         # grayscale
         screen = cv2.cvtColor(screen, cv2.COLOR_BGR2GRAY)
