@@ -34,6 +34,7 @@ If you are new to reeinforcement learning or are looking for different implement
 * If you are interested in reinforcement learning I highly recommend "Reinforcement Learning: An Introduction" by Richard S. Sutton and Andrew G. Barto
 * Some exellent and simple explanations of reinforcement learning and policy gradient: https://karpathy.github.io/2016/05/31/rl/
 * Another, similar introduction to reinforcement learning using gym and vizdoom: https://www.freecodecamp.org/news/an-introduction-to-policy-gradients-with-cartpole-and-doom-495b5ef2207f/
+* I found this implentation also really helpful in my learning process: https://github.com/flyyufelix/VizDoom-Keras-RL
 
 # Disclaimer
 
