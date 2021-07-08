@@ -81,7 +81,6 @@ class ReinforceBaselineAgent:
             histories = [h for h in results]
             x = np.vstack([h.states for h in histories])
             actions = np.hstack([h.actions for h in histories])
-            #y = np.hstack([
             discounted_rewards = np.hstack([
                 self.compute_discounted_reward(np.array(h.rewards))
                 for h in histories
@@ -107,6 +106,7 @@ class ReinforceBaselineAgent:
             epochs=epochs,
             verbose=verbose,
             steps_per_epoch=1,
+            max_queue_size=0,  # don't queue up episode-data with outdated policy
             callbacks=callbacks
         )
 
@@ -139,8 +139,8 @@ class ReinforceBaselineAgent:
 
 
 if __name__ == '__main__':
-    #agent = ReinforceBaselineAgent("VizDoom")
-    agent = ReinforceBaselineAgent.load_model("models/VizdoomReinforceBaseline", "VizDoom")
+    agent = ReinforceBaselineAgent("VizDoom")
+    # agent = ReinforceBaselineAgent.load_model("models/VizdoomReinforceBaseline", "VizDoom")
 
     for i in range(25):
         history, reward_history = agent.train(epochs=20, batch_size=6)

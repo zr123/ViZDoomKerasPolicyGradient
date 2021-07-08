@@ -99,6 +99,7 @@ class ReinforceAgent:
             epochs=epochs,
             verbose=verbose,
             steps_per_epoch=1,
+            max_queue_size=0,  # don't queue up episode-data with outdated policy
             callbacks=callbacks
         )
 
@@ -129,8 +130,8 @@ class ReinforceAgent:
 
 
 if __name__ == '__main__':
-    # agent = ReinforceAgent("VizDoom")
-    agent = ReinforceAgent.load_model("models/VizdoomReinforceMultibatch", "VizDoom")
+    agent = ReinforceAgent("VizDoom")
+    # agent = ReinforceAgent.load_model("models/VizdoomReinforceMultibatch", "VizDoom")
 
     for i in range(25):
         history, reward_history = agent.train(epochs=20, batch_size=6)
